@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandwidth Prediction</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+    
+</head>
+<body>
+    <div class="container">
+        <h1>Bandwidth Prediction</h1>
+        <label for="futureSteps">Number of Future Steps:</label>
+        <input type="number" id="futureSteps" name="futureSteps" min="1" value="3">
+        <br>
+        <input type="file" id="fileInput" style="display: none;">
+        <button onclick="uploadFile()" class="upload-btn">Upload CSV File</button>
+        
+        <button onclick="saveImages()" class="upload-btn download-btn">Download Images</button>
+
+        
+        <div class="graph-section">
+            <h2>Bandwidth History Graph</h2>
+            <div id="graphContainer" class="graph"></div>
+        </div>
+        <div class="graph-section">
+            <h2>Forecast Graph</h2>
+            <div id="graphForcast" class="graph"></div>
+        </div>
+        <div id="forecastContainer"></div>
+
+
+    </div>
+
+    <script>
+        function uploadFile() {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = function(event) {
+                handleFileUpload(event.target.files[0]);
+            };
+            input.click();
+        }
+
+        function handleFileUpload(file) {
+            var formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    console.log('File uploaded successfully');
+                    displayGraph();
+                    forecast();
+                } else {
+                    console.error('Failed to upload file');
+                }
+            })
+            .catch(error => {
+                console.error('Error occurred during file upload:', error);
+            });
+        }
+
+        function displayGraph() {
+            // Clear previous images
+            document.getElementById('graphContainer').innerHTML = '';
+
+            fetch('/plot')
+            .then(response => response.blob())
+            .then(blob => {
+                const imgUrl = URL.createObjectURL(blob);
+                const img = document.createElement('img');
+                img.src = imgUrl;
+
+                img.style.width = '80%';
+                img.style.height = 'auto'; 
+                document.getElementById('graphContainer').appendChild(img);
+            });
+        }
+
+        function forecast() {
+            // Clear previous content in graphForcast div
+            const graphForcast = document.getElementById('graphForcast');
+            graphForcast.innerHTML = '';
+
+            // Get the value of futureSteps
+            const futureSteps = document.getElementById('futureSteps').value;
+
+            // Fetch forecast with future_steps value
+            fetch(`/forecast?future_steps=${futureSteps}`)
+            .then(response => response.json())
+            .then(data => {
+                // Create new image element and set its source to the forecast image
+                const img = document.createElement('img');
+                img.src = `data:image/png;base64, ${data.imageBlob}`; // Assuming data.imageBlob contains base64 encoded image data
+
+                img.style.width = '100%';
+                img.style.height = 'auto'; 
+                graphForcast.appendChild(img);
+
+                // Create paragraph elements for each forecasted value in forecastContainer div
+                const forecastContainer = document.getElementById('forecastContainer');
+                forecastContainer.innerHTML = '';
+                data.forecast.forEach((value, index) => {
+                    const paragraph = document.createElement('p');
+                    paragraph.textContent = `Step ${index + 1}: ${parseInt(value)} MB`;
+                    forecastContainer.appendChild(paragraph);
+                });
+            });
+        }
+
+
+        function saveImages() {
+            const graphContainer = document.getElementById('graphContainer');
+            const graphForcast = document.getElementById('graphForcast');
+
+            // Check if images are loaded
+            const containerImg = graphContainer.querySelector('img');
+            const forcastImg = graphForcast.querySelector('img');
+
+            if (!containerImg || !forcastImg) {
+                alert('Images not loaded. Please wait for the graphs to generate.');
+                return;
+            }
+
+            // Create a new canvas element
+            const canvasContainer = document.createElement('canvas');
+            const canvasForcast = document.createElement('canvas');
+            const contextContainer = canvasContainer.getContext('2d');
+            const contextForcast = canvasForcast.getContext('2d');
+
+            // Get the dimensions of the images
+            const containerWidth = containerImg.width;
+            const containerHeight = containerImg.height;
+            const forcastWidth = forcastImg.width;
+            const forcastHeight = forcastImg.height;
+
+            // Set canvas dimensions to match the image dimensions
+            canvasContainer.width = containerWidth;
+            canvasContainer.height = containerHeight;
+            canvasForcast.width = forcastWidth;
+            canvasForcast.height = forcastHeight;
+
+            // Draw the images onto the canvas
+            contextContainer.drawImage(containerImg, 0, 0, containerWidth, containerHeight);
+            contextForcast.drawImage(forcastImg, 0, 0, forcastWidth, forcastHeight);
+
+            // Convert canvas to image
+            const containerDataURL = canvasContainer.toDataURL('image/png');
+            const forcastDataURL = canvasForcast.toDataURL('image/png');
+
+            // Create temporary anchor elements to download the images
+            const containerLink = document.createElement('a');
+            containerLink.href = containerDataURL;
+            containerLink.download = 'graphContainer.png';
+            document.body.appendChild(containerLink);
+
+            const forcastLink = document.createElement('a');
+            forcastLink.href = forcastDataURL;
+            forcastLink.download = 'graphForcast.png';
+            document.body.appendChild(forcastLink);
+
+            // Trigger the download for both images
+            containerLink.click();
+            forcastLink.click();
+
+            // Clean up temporary elements
+            document.body.removeChild(containerLink);
+            document.body.removeChild(forcastLink);
+        }
+
+
+
+    </script>
+</body>
+</html>
