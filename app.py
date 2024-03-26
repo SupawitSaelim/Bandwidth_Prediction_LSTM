@@ -37,7 +37,7 @@ def upload_file():
 @app.route('/forecast')
 def predict_bandwidth():
     global dataset, forecast_values
-    dataset = data_preprocessing(dataset)
+    dataset, max_traffic, min_traffic = data_preprocessing(dataset)
     # Extract traffic data from dataset
     traffic_data = dataset['Traffic Total (Volume)'].values.astype('float32')
 
@@ -65,26 +65,7 @@ def predict_bandwidth():
     start_date = last_date.replace(hour=0, minute=0, second=0) + datetime.timedelta(days=1)
     predicted_dates = [start_date + datetime.timedelta(days=i) for i in range(future_steps)]
 
-    # Print forecasted values
-    # print("Forecast for the next", future_steps, "steps:")
-    # for i, data in enumerate(forecast):
-    #     print(f" {i+1}: {data[0]}")
-
-    forecast_values = []
     forecast_values = [float(value[0]) for value in forecast]
-
-
-    # Plotting the forecast
-    plt.figure(figsize=(10, 6))
-    plt.plot(dataset['Date Time'], traffic_data, label='Original Bandwidth Data')
-    plt.plot(predicted_dates, forecast, label='Forecast', marker='o')
-    plt.xlabel('Date')
-    plt.ylabel('Traffic Total (Volume)')
-    plt.title('Bandwidth Forecast for Next ' + str(future_steps) + ' Steps')
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('./instance/images/bandwidth_forecast.png')
 
     # Read the image file as bytes
     with open('./instance/images/bandwidth_forecast.png', 'rb') as f:
@@ -93,8 +74,11 @@ def predict_bandwidth():
     # Encode the image blob as base64
     image_base64 = base64.b64encode(image_blob).decode('utf-8')
 
-    # Return forecast values along with the encoded image
-    return jsonify({'forecast': forecast_values, 'imageBlob': image_base64})
+    # Return forecast values along with the encoded image and max/min traffic values
+    return jsonify({'forecast': forecast_values, 'imageBlob': image_base64, 'maxTraffic': max_traffic, 'minTraffic': min_traffic})
+
+
+
 
 @app.route('/plot')
 def plot_graph():
@@ -142,7 +126,13 @@ def data_preprocessing(dataset):
     total_traffic_volume = dataset['Traffic Total (Volume)'].sum()
     print("Total Traffic Volume:", total_traffic_volume)
     
-    return dataset
+    
+    max_traffic = dataset['Traffic Total (Volume)'].max()
+    min_traffic = dataset['Traffic Total (Volume)'].min()
+    print("Max Traffic Volume:", max_traffic)
+    print("Min Traffic Volume:", min_traffic)
+
+    return dataset, max_traffic, min_traffic
     
 # Function to create input sequence
 def create_input_sequence(data, history_length=1):

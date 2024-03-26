@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bandwidth Prediction</title>
     <link rel="stylesheet" href="../static/css/style.css">
-    
+
 </head>
+
 <body>
     <div class="container">
         <h1>Bandwidth Prediction</h1>
@@ -15,10 +17,10 @@
         <br>
         <input type="file" id="fileInput" style="display: none;">
         <button onclick="uploadFile()" class="upload-btn">Upload CSV File</button>
-        
+
         <button onclick="saveImages()" class="upload-btn download-btn">Download Images</button>
 
-        
+
         <div class="graph-section">
             <h2>Bandwidth History Graph</h2>
             <div id="graphContainer" class="graph"></div>
@@ -36,7 +38,7 @@
         function uploadFile() {
             var input = document.createElement('input');
             input.type = 'file';
-            input.onchange = function(event) {
+            input.onchange = function (event) {
                 handleFileUpload(event.target.files[0]);
             };
             input.click();
@@ -45,23 +47,23 @@
         function handleFileUpload(file) {
             var formData = new FormData();
             formData.append('file', file);
-            
+
             fetch('/upload', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (response.ok) {
-                    console.log('File uploaded successfully');
-                    displayGraph();
-                    forecast();
-                } else {
-                    console.error('Failed to upload file');
-                }
-            })
-            .catch(error => {
-                console.error('Error occurred during file upload:', error);
-            });
+                .then(response => {
+                    if (response.ok) {
+                        console.log('File uploaded successfully');
+                        displayGraph();
+                        forecast();
+                    } else {
+                        console.error('Failed to upload file');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error occurred during file upload:', error);
+                });
         }
 
         function displayGraph() {
@@ -69,48 +71,71 @@
             document.getElementById('graphContainer').innerHTML = '';
 
             fetch('/plot')
-            .then(response => response.blob())
-            .then(blob => {
-                const imgUrl = URL.createObjectURL(blob);
-                const img = document.createElement('img');
-                img.src = imgUrl;
+                .then(response => response.blob())
+                .then(blob => {
+                    const imgUrl = URL.createObjectURL(blob);
+                    const img = document.createElement('img');
+                    img.src = imgUrl;
 
-                img.style.width = '80%';
-                img.style.height = 'auto'; 
-                document.getElementById('graphContainer').appendChild(img);
-            });
+                    img.style.width = '80%';
+                    img.style.height = 'auto';
+                    document.getElementById('graphContainer').appendChild(img);
+                });
         }
 
         function forecast() {
-            // Clear previous content in graphForcast div
-            const graphForcast = document.getElementById('graphForcast');
-            graphForcast.innerHTML = '';
+    // Clear previous content in graphForcast div
+    const graphForcast = document.getElementById('graphForcast');
+    graphForcast.innerHTML = '';
 
-            // Get the value of futureSteps
-            const futureSteps = document.getElementById('futureSteps').value;
+    // Get the value of futureSteps
+    const futureSteps = document.getElementById('futureSteps').value;
 
-            // Fetch forecast with future_steps value
-            fetch(`/forecast?future_steps=${futureSteps}`)
-            .then(response => response.json())
-            .then(data => {
-                // Create new image element and set its source to the forecast image
+    // Fetch forecast with future_steps value
+    fetch(`/forecast?future_steps=${futureSteps}`)
+        .then(response => response.json())
+        .then(data => {
+            // Check if forecast data is received
+            if (data.forecast && data.forecast.length > 0) {
+                // Display forecast graph
                 const img = document.createElement('img');
-                img.src = `data:image/png;base64, ${data.imageBlob}`; // Assuming data.imageBlob contains base64 encoded image data
-
+                img.src = `data:image/png;base64, ${data.imageBlob}`;
                 img.style.width = '100%';
-                img.style.height = 'auto'; 
+                img.style.height = 'auto';
                 graphForcast.appendChild(img);
-
-                // Create paragraph elements for each forecasted value in forecastContainer div
+                
+                // Display forecast values
                 const forecastContainer = document.getElementById('forecastContainer');
                 forecastContainer.innerHTML = '';
                 data.forecast.forEach((value, index) => {
                     const paragraph = document.createElement('p');
-                    paragraph.textContent = `Step ${index + 1}: ${parseInt(value)} MB`;
+                    paragraph.innerHTML = `<strong>Step ${index + 1}: </strong>${parseInt(value)} MB`;
                     forecastContainer.appendChild(paragraph);
                 });
-            });
-        }
+
+                // Display max and min traffic values
+                const maxTrafficParagraph = document.createElement('p');
+                maxTrafficParagraph.innerHTML = `<strong>Max Traffic: </strong>${data.maxTraffic} MB`;
+                forecastContainer.appendChild(maxTrafficParagraph);
+
+                const minTrafficParagraph = document.createElement('p');
+                minTrafficParagraph.innerHTML = `<strong>Min Traffic: </strong>${data.minTraffic} MB`;
+                forecastContainer.appendChild(minTrafficParagraph);
+            } else {
+                // If no forecast data received, display an error message
+                const errorMessage = document.createElement('p');
+                errorMessage.textContent = 'Error: No forecast data received.';
+                forecastContainer.appendChild(errorMessage);
+            }
+        })
+        .catch(error => {
+            // Display error message if fetch fails
+            console.error('Error fetching forecast:', error);
+            const errorMessage = document.createElement('p');
+            errorMessage.textContent = 'Error fetching forecast data.';
+            forecastContainer.appendChild(errorMessage);
+        });
+}
 
 
         function saveImages() {
@@ -176,4 +201,5 @@
 
     </script>
 </body>
+
 </html>
